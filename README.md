@@ -1,0 +1,2 @@
+# mnist_infinity_diffusion
+保存在mnist上inifinity-diffusion测试的结果
