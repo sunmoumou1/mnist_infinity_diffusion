@@ -1,5 +1,5 @@
 # 重新复习
-
+from PIL import Image
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.utils.data.dataset import Subset
@@ -28,44 +28,45 @@ def train_val_split(dataset, train_val_ratio):
     indices = list(range(len(dataset)))
     split_index = int(len(dataset) * train_val_ratio)
     train_indices, val_indices = indices[:split_index], indices[split_index:]
-    train_dataset, val_dataset = Subset(dataset, train_indices), Subset(
-        dataset, val_indices
-    )
+    train_dataset, val_dataset = Subset(dataset, train_indices), Subset(dataset, val_indices)
+    
     return train_dataset, val_dataset
 
 
-class SpecificHumidityDataset(Dataset):
-    def __init__(self, data_file):
-        # Load preprocessed data from the .npy file
-        self.data = np.load(data_file)
-        
-        # Check for values less than 0, count them, and replace with 0
-        negative_count = np.sum(self.data < 0)
-        if negative_count > 0:
-            print(f"Found {negative_count} values less than 0, replacing them with 0.")
-            self.data[self.data < 0] = 0
-            
-        self.data = 100 * np.expand_dims(self.data, axis=1)  # Insert a new dimension at axis 1 to get (B, 1, H, W)
-        
-        # Calculate mean and standard deviation for standardization
-        self.mean = self.data.mean()
-        self.std = self.data.std()
-        print(f"SpecificHumidityDataset - Mean: {self.mean}, Std: {self.std}")
-
-        # Avoid division by zero if std is extremely small
-        if self.std < 1e-6:
-            self.std = 1e-6
+class MNISTImageDataset(Dataset):
+    def __init__(self, root_dir):
+        """
+        初始化自定义数据集
+        :param root_dir: 包含图像的根目录
+        """
+        self.root_dir = root_dir
+        # 获取文件夹中所有图片文件路径
+        self.image_paths = [os.path.join(root_dir, fname) for fname in os.listdir(root_dir) if fname.endswith('.jpg')]
+        # 定义图像处理转换，调整为24x24大小并转换为张量
+        self.transform = transforms.Compose([
+            transforms.Resize((28, 28)),  # 调整图像大小为24x24
+            transforms.ToTensor(),        # 将图像转换为张量，并自动将值归一化到[0, 1]
+        ])
 
     def __len__(self):
-        return len(self.data)
+        """
+        返回数据集的大小
+        """
+        return len(self.image_paths)
 
     def __getitem__(self, idx):
-        """Fetches the idx-th humidity field and standardizes it"""
-        humidity_field = self.data[idx]  # Shape: (1, longitude, latitude)
-        # Standardize the data
-        humidity_field = (humidity_field - self.mean) / self.std
-        return torch.tensor(humidity_field, dtype=torch.float32)
-
+        """
+        获取指定索引的图像及其标签
+        :param idx: 图片索引
+        :return: 归一化的24x24矩阵
+        """
+        # 获取当前索引的图片路径
+        img_path = self.image_paths[idx]
+        # 打开图像
+        image = Image.open(img_path).convert('L')  # 转换为灰度图像
+        # 应用转换
+        image = self.transform(image)
+        return image
     
 def get_data_loader(
     H,
@@ -86,13 +87,9 @@ def get_data_loader(
     """
     # 获取湿度数据的目录和年份范围
     data_dir = H.data.root_dir
-    start_year = H.data.start_year
-    end_year = H.data.end_year
-
+    
     # 创建完整数据集
-    dataset = SpecificHumidityDataset(data_dir)
-    mean = dataset.mean
-    std = dataset.std
+    dataset = MNISTImageDataset(data_dir)
 
     # 划分训练集和验证集
     train_dataset, val_dataset = train_val_split(dataset, train_val_split_ratio)
@@ -113,6 +110,6 @@ def get_data_loader(
         num_workers=2,
     )
 
-    return train_dataloader, val_dataloader, mean, std
+    return train_dataloader, val_dataloader
 
 

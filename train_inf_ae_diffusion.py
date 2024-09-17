@@ -62,8 +62,6 @@ def train(
     optim,
     diffusion,
     schedule_sampler,
-    mean, # 去标准化的平均值
-    std,
     checkpoint_path="",
     global_step=0,
 ):    
@@ -95,6 +93,7 @@ def train(
             global_step += 1
             x = x.to(device, non_blocking=True)
             # non_blocking=True: 允许数据传输操作（从 CPU 到 GPU 或从 GPU 到 GPU）在可能的情况下异步进行，而不是等待传输完成后再继续执行后续的代码。这意味着数据传输可以与其他计算任务并行，从而可能提高整体训练效率。
+            x = x * 2 - 1
 
             t, weights = schedule_sampler.sample(x.size(0), device)
             # schedule_sampler 是一个用于在训练过程中采样时间步的工具，目的是选择在每个批次中需要计算损失的时间步 t。采样的时间步数是 x.size(0)，即当前批次中的样本数。
@@ -233,13 +232,14 @@ def train(
                                     h,
                                     w,
                                 ),
+                                clip_denoised = True,
                                 progress=True,
                                 # model_kwargs=dict(z=encoding),
                                 return_all=False,  # 表示只返回最终生成的样本图像，而不返回扩散过程中的所有中间状态
                             ) # 要特别记得自己最开始实验的时候并没有设置clip_denoised = False
                             
-                            samples = samples * std + mean
-                            
+                            samples = (samples + 1) / 2
+
                             # 将张量的值剪裁到 0 到 1 之间, 不确定这行代码到底需要不需要
                             samples = torch.clamp(samples, min=0.0, max=1.0)
 
@@ -363,7 +363,7 @@ def main(argv):
 
     model = model.to(device)
     ema_model = ema_model.to(device)
-    train_loader, _, mean, std = get_data_loader(H)
+    train_loader, _ = get_data_loader(H)
     optim = torch.optim.Adam(
         list(model.parameters()),
         lr=H.optimizer.learning_rate,
@@ -443,8 +443,6 @@ def main(argv):
         optim,
         diffusion,
         schedule_sampler,
-        mean,
-        std,
         **train_kwargs,
     )
 

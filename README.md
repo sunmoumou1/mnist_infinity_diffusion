@@ -1,2 +1,2 @@
-# mnist_infinity_diffusion
-保存在mnist上inifinity-diffusion测试的结果
+# infinity-diffusion-save
+保存infinity-diffusion在MNIST数据集上的测试结果

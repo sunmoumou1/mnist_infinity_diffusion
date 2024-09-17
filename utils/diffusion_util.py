@@ -199,7 +199,7 @@ def get_conv(kernel_size, std, mode="reflect", channels=3):
 
 
 class DCTGaussianBlur(nn.Module):
-    def __init__(self, img_size, std, inv_snr=0.05):
+    def __init__(self, img_size, std, inv_snr=0.04):
         super().__init__()
         self.inv_snr = inv_snr
         H, W = img_size  # img_size 应为一个元组 (H, W)
